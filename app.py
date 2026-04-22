@@ -1,71 +1,63 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, jsonify
 import subprocess
-import uuid
 import os
 
 app = Flask(__name__)
 
-# -----------------------------
-# Ensure FFmpeg is available
-# -----------------------------
-def setup_ffmpeg():
-    if not os.path.exists("ffmpeg"):
-        print("FFmpeg not found, downloading...")
+# ✅ Check if FFmpeg is installed
+def check_ffmpeg():
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        print("✅ FFMPEG INSTALLED")
+        print(result.stdout.split("\n")[0])
+    except Exception as e:
+        print("❌ FFMPEG NOT FOUND:", e)
 
-        os.system("apt-get update && apt-get install -y wget xz-utils")
+check_ffmpeg()
 
-        os.system("wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz")
-        os.system("tar -xf ffmpeg-release-amd64-static.tar.xz")
-        os.system("cp ffmpeg-*-static/ffmpeg ./ffmpeg")
-        os.system("chmod +x ffmpeg")
-
-        print("FFmpeg downloaded ✅")
-
-    return "./ffmpeg"
-
-FFMPEG_PATH = setup_ffmpeg()
-
-# -----------------------------
-# Routes
-# -----------------------------
+# ✅ Test route (very important)
 @app.route("/")
 def home():
-    return "API running ✅"
+    return "Server is running ✅"
 
+# ✅ Example endpoint using FFmpeg
 @app.route("/process", methods=["POST"])
 def process_video():
     try:
-        file = request.files.get("video")
+        input_file = "input.mp4"
+        output_file = "output.mp4"
 
-        if not file:
-            return jsonify({"error": "No file"}), 400
-
-        # Unique filenames
-        filename = str(uuid.uuid4()) + ".mp4"
-        input_path = f"/tmp/{filename}"
-        output_path = f"/tmp/out_{filename}"
-
-        file.save(input_path)
-
-        # FFmpeg command (simple re-encode)
+        # Dummy example command (replace with your real logic)
         cmd = [
-            FFMPEG_PATH,
-            "-i", input_path,
-            "-vcodec", "libx264",
-            "-acodec", "aac",
-            output_path
+            "ffmpeg",
+            "-y",
+            "-i", input_file,
+            "-vf", "scale=640:360",
+            output_file
         ]
 
         subprocess.run(cmd, check=True)
 
-        return send_file(output_path, as_attachment=True)
+        return jsonify({
+            "status": "success",
+            "message": "Video processed"
+        })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("ERROR:", str(e))
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 
-# -----------------------------
-# Run
-# -----------------------------
+# ✅ IMPORTANT: Railway dynamic port
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3000)
+    port = int(os.environ.get("PORT", 3000))
+    print(f"🚀 Running on port {port}")
+    app.run(host="0.0.0.0", port=port)
